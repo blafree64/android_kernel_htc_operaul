@@ -115,7 +115,6 @@ struct vpe_ctrl_type {
 	struct regulator *fs_vpe;
 	struct clk	*vpe_clk[2];
 	struct msm_mctl_pp_frame_info *pp_frame_info;
-	uint8_t			vpe_irq_cnt; 
 	wait_queue_head_t vpe_event_queue;
 	int               vpe_event_done;
 };

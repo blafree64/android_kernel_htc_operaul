@@ -64,6 +64,7 @@ enum {
 
 struct dcs_cmd_list	cmdlist;
 
+void mipi_dsi_error(void);
 #ifdef CONFIG_FB_MSM_MDP40
 void mipi_dsi_mdp_stat_inc(int which)
 {
@@ -1430,6 +1431,10 @@ int mipi_dsi_cmd_dma_tx(struct dsi_buf *tp)
 		if (ret <= 0) {
 			pr_info("%s: wait for dsi_dma complete timeout (ret=%d, busy=%d, stat=0x%x)\n",
 			    __func__, ret, dsi_cmd_dma_need_wait, MIPI_INP(MIPI_DSI_BASE + 0x0004));
+			if (dsi_cmd_dma_need_wait > 5) {
+				mipi_dsi_error();
+				mipi_dsi_sw_reset();
+			}
 		}
 	}
 
@@ -1651,7 +1656,7 @@ void mipi_dsi_ack_err_status(void)
 
 	if (status) {
 		MIPI_OUTP(MIPI_DSI_BASE + 0x0064, status);
-		pr_debug("%s: status=%x\n", __func__, status);
+		pr_info("%s: status=%x\n", __func__, status);
 	}
 }
 
@@ -1662,7 +1667,7 @@ void mipi_dsi_timeout_status(void)
 	status = MIPI_INP(MIPI_DSI_BASE + 0x00bc);
 	if (status & 0x0111) {
 		MIPI_OUTP(MIPI_DSI_BASE + 0x00bc, status);
-		pr_debug("%s: status=%x\n", __func__, status);
+		pr_info("%s: status=%x\n", __func__, status);
 	}
 }
 
@@ -1674,7 +1679,7 @@ void mipi_dsi_dln0_phy_err(void)
 
 	if (status & 0x011111) {
 		MIPI_OUTP(MIPI_DSI_BASE + 0x00b0, status);
-		pr_debug("%s: status=%x\n", __func__, status);
+		pr_info("%s: status=%x\n", __func__, status);
 	}
 }
 
@@ -1686,7 +1691,7 @@ void mipi_dsi_fifo_status(void)
 
 	if (status & 0x44444489) {
 		MIPI_OUTP(MIPI_DSI_BASE + 0x0008, status);
-		pr_debug("%s: status=%x\n", __func__, status);
+		pr_info("%s: status=%x\n", __func__, status);
 	}
 }
 
@@ -1698,7 +1703,7 @@ void mipi_dsi_status(void)
 
 	if (status & 0x80000000) {
 		MIPI_OUTP(MIPI_DSI_BASE + 0x0004, status);
-		pr_debug("%s: status=%x\n", __func__, status);
+		pr_info("%s: status=%x\n", __func__, status);
 	}
 }
 

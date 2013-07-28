@@ -13,14 +13,17 @@
 
 #include <linux/init.h>
 #include <linux/platform_device.h>
-#include <linux/msm_kgsl.h>
+#include <mach/kgsl.h>
 #include <mach/msm_bus_board.h>
 #include <mach/board.h>
+#include <mach/msm_dcvs.h>
 #include <mach/socinfo.h>
+
 #include <mach/msm_iomap.h>
 
 #include "../devices.h"
 #include "../board-8930.h"
+
 #include "../board-operaul.h"
 
 #ifdef CONFIG_MSM_BUS_SCALING

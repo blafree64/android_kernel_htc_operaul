@@ -73,6 +73,7 @@ static void hdmi_msm_dump_regs(const char *prefix);
 
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT
 static void hdmi_msm_hdcp_enable(void);
+atomic_t read_an_complete;
 #else
 static inline void hdmi_msm_hdcp_enable(void) {}
 #endif
@@ -760,8 +761,6 @@ void fake_plug(bool plug)
 
 static void mhl_status_notifier_func(bool isMHL, int charging_type)
 {
-       if(!isMHL)
-			switch_set_state(&external_common_state->sdev, 0);
 }
 #endif
 static void hdmi_msm_hpd_state_work(struct work_struct *work)
@@ -982,7 +981,8 @@ static irqreturn_t hdmi_msm_isr(int irq, void *dev_id)
 	if ((hpd_int_ctrl & (1 << 2)) && (hpd_int_status & (1 << 0))) {
 		boolean cable_detected = (hpd_int_status & 2) >> 1;
 
-		HDMI_OUTP(0x0254, ((hpd_int_ctrl | (BIT(0))) & ~BIT(2)));
+		
+		HDMI_OUTP(0x0254, (1 << 2) | (1 << 0));
 
 		DEV_DBG("%s: HPD IRQ, Ctrl=%04x, State=%04x\n", __func__,
 			hpd_int_ctrl, hpd_int_status);
@@ -1848,6 +1848,7 @@ static int hdcp_authentication_part1(void)
 	int ret = 0;
 	boolean is_match;
 	boolean is_part1_done = FALSE;
+	boolean clock_not_set = FALSE;
 	uint32 timeout_count;
 	uint8 bcaps;
 	uint8 aksv[5];
@@ -1864,6 +1865,10 @@ static int hdcp_authentication_part1(void)
 
 	if (!is_part1_done) {
 		is_part1_done = TRUE;
+#ifdef CONFIG_ARCH_MSM8X60
+		hr_msleep(50);
+#endif
+		atomic_set(&read_an_complete,1);
 
 		
 		qfprom_aksv_0 = inpdw(QFPROM_BASE + 0x000060D8);
@@ -1926,27 +1931,45 @@ static int hdcp_authentication_part1(void)
 		
 
 		mutex_lock(&hdcp_auth_state_mutex);
-		timeout_count = 100;
-		while (((HDMI_INP_ND(0x011C) & (0x3 << 8)) != (0x3 << 8))
-			&& timeout_count--)
-			msleep(20);
-		if (!timeout_count) {
-			ret = -ETIMEDOUT;
-			DEV_ERR("%s(%d): timedout, An0=%d, An1=%d\n",
-				__func__, __LINE__,
-			(HDMI_INP_ND(0x011C) & BIT(8)) >> 8,
-			(HDMI_INP_ND(0x011C) & BIT(9)) >> 9);
-			mutex_unlock(&hdcp_auth_state_mutex);
-			goto error;
+		mutex_lock(&hdmi_msm_state_mutex);
+		if(!hdmi_msm_state->panel_power_on) {
+			mutex_unlock(&hdmi_msm_state_mutex);
+			clock_not_set = TRUE;
+		} else {
+			mutex_unlock(&hdmi_msm_state_mutex);
+			timeout_count = 100;
+			while (((HDMI_INP_ND(0x011C) & (0x3 << 8)) != (0x3 << 8))
+				&& timeout_count--) {
+				DEV_DBG("wait for 20ms.... %d\n", timeout_count);
+				msleep(20);
+			}
+			if (!timeout_count) {
+				ret = -ETIMEDOUT;
+				DEV_ERR("%s(%d): timedout, An0=%d, An1=%d\n",
+					__func__, __LINE__,
+				(HDMI_INP_ND(0x011C) & BIT(8)) >> 8,
+				(HDMI_INP_ND(0x011C) & BIT(9)) >> 9);
+				mutex_unlock(&hdcp_auth_state_mutex);
+				goto error;
+			}
 		}
 
 		HDMI_OUTP(0x0168, bcaps);
+
+		if (clock_not_set) {
+			link0_an_0 = 0;
+			link0_an_1 = 0;
+			goto skip_an;
+		}
 
 		
 		link0_an_0 = HDMI_INP(0x014C);
 
 		
 		link0_an_1 = HDMI_INP(0x0150);
+
+skip_an:
+		atomic_set(&read_an_complete,0);
 		mutex_unlock(&hdcp_auth_state_mutex);
 
 		
@@ -2063,6 +2086,7 @@ static int hdcp_authentication_part1(void)
 		is_part1_done = FALSE;
 		return 0;
 error:
+		atomic_set(&read_an_complete,0);
 		DEV_ERR("[%s]: HDCP Reauthentication\n", __func__);
 		is_part1_done = FALSE;
 		return ret;
@@ -3828,6 +3852,8 @@ static int __devinit hdmi_msm_probe(struct platform_device *pdev)
 #endif
 	}
 
+	hdmi_msm_state->pd->core_power(0, 1);
+
 	probe_completed = true;
 	DEV_INFO("probe done\n");
 
@@ -4002,6 +4028,7 @@ static int __init hdmi_msm_init(void)
 	INIT_WORK(&hdmi_msm_state->hpd_state_work, hdmi_msm_hpd_state_work);
 	INIT_WORK(&hdmi_msm_state->hpd_read_work, hdmi_msm_hpd_read_work);
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT
+	atomic_set(&read_an_complete,0);
 	init_completion(&hdmi_msm_state->hdcp_success_done);
 	INIT_WORK(&hdmi_msm_state->hdcp_reauth_work, hdmi_msm_hdcp_reauth_work);
 	INIT_WORK(&hdmi_msm_state->hdcp_work, hdmi_msm_hdcp_work);

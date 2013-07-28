@@ -606,7 +606,7 @@ static void mdp_hist_read_work(struct work_struct *data);
 
 static int mdp_hist_init_mgmt(struct mdp_hist_mgmt *mgmt, uint32_t block)
 {
-	uint32_t bins, extra, index, intr =0, term = 0;
+	uint32_t bins, extra, index, intr = 0, term = 0;
 	init_completion(&mgmt->mdp_hist_comp);
 	mutex_init(&mgmt->mdp_hist_mutex);
 	mutex_init(&mgmt->mdp_do_hist_mutex);
@@ -1207,7 +1207,7 @@ error:
 static int _mdp_copy_hist_data(struct mdp_histogram_data *hist,
 						struct mdp_hist_mgmt *mgmt)
 {
-	int ret;
+	int ret = 0;
 
 	if (hist->c0) {
 		ret = copy_to_user(hist->c0, mgmt->c0,
@@ -1337,6 +1337,82 @@ int mdp_ppp_pipe_wait(void)
 	}
 
 	return ret;
+}
+
+#define DEFAULT_FRAME_RATE (60)
+
+u32 mdp_get_panel_framerate(struct msm_fb_data_type *mfd)
+{
+	u32 frame_rate = 0, pixel_rate = 0, total_pixel;
+	struct msm_panel_info *panel_info = &mfd->panel_info;
+
+	pixel_rate =
+		(panel_info->type == MIPI_CMD_PANEL ||
+		 panel_info->type == MIPI_VIDEO_PANEL) ?
+		panel_info->mipi.dsi_pclk_rate :
+		panel_info->clk_rate;
+
+	if (!pixel_rate)
+		pr_warn("%s pixel rate is zero\n", __func__);
+
+#ifdef CONFIG_FB_MSM_RESOLUTION_OVERRIDE
+	total_pixel =
+		(panel_info->lcdc.h_back_porch +
+		  panel_info->lcdc.h_front_porch +
+		  panel_info->lcdc.h_pulse_width +
+		  mfd->ovr_src_width) *
+		(panel_info->lcdc.v_back_porch +
+		  panel_info->lcdc.v_front_porch +
+		  panel_info->lcdc.v_pulse_width +
+		  mfd->ovr_src_height);
+#else
+	total_pixel =
+		(panel_info->lcdc.h_back_porch +
+		 panel_info->lcdc.h_front_porch +
+		 panel_info->lcdc.h_pulse_width +
+		 panel_info->xres) *
+		(panel_info->lcdc.v_back_porch +
+		 panel_info->lcdc.v_front_porch +
+		 panel_info->lcdc.v_pulse_width +
+		 panel_info->yres);
+#endif
+
+	if (total_pixel)
+		frame_rate = pixel_rate / total_pixel;
+	else
+		pr_warn("%s total pixels are zero\n", __func__);
+
+	if (panel_info->mipi.frame_rate &&
+		(panel_info->mipi.frame_rate != frame_rate)) {
+		pr_info("[DISP] update panel framerate %u -> %u\n",
+			frame_rate, panel_info->mipi.frame_rate);
+		frame_rate = panel_info->mipi.frame_rate;
+	}
+
+	if (mfd->dest == DISPLAY_LCD) {
+		if (panel_info->type == MDDI_PANEL && panel_info->mddi.is_type1)
+			frame_rate = panel_info->lcd.refx100 / (100 * 2);
+		else if (panel_info->type != MIPI_CMD_PANEL)
+			frame_rate = panel_info->lcd.refx100 / 100;
+
+		if (panel_info->type == MIPI_CMD_PANEL && !panel_info->mipi.frame_rate) {
+			if (frame_rate != (panel_info->lcd.refx100 / 100)) {
+				pr_warn("[DISP] rework framerate %u (pixel=%d, pclk=%d) -> %u\n",
+					frame_rate, total_pixel, pixel_rate,
+					panel_info->lcd.refx100 / 100);
+				frame_rate = panel_info->lcd.refx100 / 100;
+			}
+		}
+	}
+
+	if (frame_rate == 0) {
+		frame_rate = DEFAULT_FRAME_RATE;
+		pr_warn("%s frame rate=%d is default\n", __func__, frame_rate);
+	}
+	pr_debug("%s frame rate=%d total_pixel=%d, pixel_rate=%d\n", __func__,
+		frame_rate, total_pixel, pixel_rate);
+
+	return frame_rate;
 }
 
 static DEFINE_SPINLOCK(mdp_lock);
@@ -2045,6 +2121,11 @@ static int mdp_on(struct platform_device *pdev)
 	if (mdp_pdata->mdp_gamma)
 		mdp_pdata->mdp_gamma();
 
+#ifdef CONFIG_ARCH_MSM8X60
+	if (mfd->panel.type == MIPI_CMD_PANEL)
+		mdp4_dsi_cmd_vsync_ctrl(NULL,1);
+#endif
+
 	return ret;
 }
 
@@ -2085,8 +2166,8 @@ void mdp_hw_version(void)
 static uint32_t mdp_bus_scale_handle;
 int mdp_bus_scale_update_request(uint32_t index)
 {
-	if (!mdp_pdata && (!mdp_pdata->mdp_bus_scale_table
-	     || index > (mdp_pdata->mdp_bus_scale_table->num_usecases - 1))) {
+	if (!mdp_pdata || !mdp_pdata->mdp_bus_scale_table
+	     || index > (mdp_pdata->mdp_bus_scale_table->num_usecases - 1)) {
 		printk(KERN_ERR "%s invalid table or index\n", __func__);
 		return -EINVAL;
 	}
@@ -2361,6 +2442,7 @@ static int mdp_probe(struct platform_device *pdev)
 	
 	mfd->pdev = msm_fb_dev;
 	mfd->mdp_rev = mdp_rev;
+	mfd->vsync_init = NULL;
 
 	if (mdp_pdata) {
 		if (mdp_pdata->cont_splash_enabled && mfd->panel.type != MIPI_CMD_PANEL) {
@@ -2487,7 +2569,8 @@ static int mdp_probe(struct platform_device *pdev)
 	case MIPI_VIDEO_PANEL:
 #ifndef CONFIG_FB_MSM_MDP303
 		mipi = &mfd->panel_info.mipi;
-		mdp4_dsi_vsync_init(0);
+		mfd->vsync_init = mdp4_dsi_vsync_init;
+		mfd->vsync_show = mdp4_dsi_video_show_event;
 		mfd->hw_refresh = TRUE;
 		mfd->dma_fnc = mdp4_dsi_video_overlay;
 		mfd->lut_update = mdp_lut_update_lcdc;
@@ -2529,7 +2612,8 @@ static int mdp_probe(struct platform_device *pdev)
 #ifndef CONFIG_FB_MSM_MDP303
 		mfd->dma_fnc = mdp4_dsi_cmd_overlay;
 		mipi = &mfd->panel_info.mipi;
-		mdp4_dsi_rdptr_init(0);
+		mfd->vsync_init = mdp4_dsi_rdptr_init;
+		mfd->vsync_show = mdp4_dsi_cmd_show_event;
 		if (mfd->panel_info.pdest == DISPLAY_1) {
 			if_no = PRIMARY_INTF_SEL;
 			mfd->dma = &dma2_data;
@@ -2571,7 +2655,8 @@ static int mdp_probe(struct platform_device *pdev)
 
 #ifdef CONFIG_FB_MSM_DTV
 	case DTV_PANEL:
-		mdp4_dtv_vsync_init(0);
+		mfd->vsync_init = mdp4_dtv_vsync_init;
+		mfd->vsync_show = mdp4_dtv_show_event;
 		pdata->on = mdp4_dtv_on;
 		pdata->off = mdp4_dtv_off;
 		mfd->hw_refresh = TRUE;
@@ -2711,6 +2796,30 @@ static int mdp_probe(struct platform_device *pdev)
 
 	pdev_list[pdev_list_cnt++] = pdev;
 	mdp4_extn_disp = 0;
+
+	if (mfd->vsync_init != NULL) {
+		mfd->vsync_init(0);
+
+		if (!mfd->vsync_sysfs_created) {
+			mfd->dev_attr.attr.name = "vsync_event";
+			mfd->dev_attr.attr.mode = S_IRUGO;
+			mfd->dev_attr.show = mfd->vsync_show;
+			sysfs_attr_init(&mfd->dev_attr.attr);
+
+			rc = sysfs_create_file(&mfd->fbi->dev->kobj,
+							&mfd->dev_attr.attr);
+			if (rc) {
+				pr_err("%s: sysfs creation failed, ret=%d\n",
+					__func__, rc);
+				return rc;
+			}
+
+			kobject_uevent(&mfd->fbi->dev->kobj, KOBJ_ADD);
+			pr_debug("%s: kobject_uevent(KOBJ_ADD)\n", __func__);
+			mfd->vsync_sysfs_created = 1;
+		}
+	}
+
 	return 0;
 
       mdp_probe_err:

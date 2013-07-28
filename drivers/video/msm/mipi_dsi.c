@@ -258,6 +258,9 @@ static int mipi_dsi_on(struct platform_device *pdev)
 
 	mipi_dsi_host_init(mipi);
 
+	if (mipi_dsi_pdata && mipi_dsi_pdata->deferred_reset_driver_ic)
+		mipi_dsi_pdata->deferred_reset_driver_ic();
+
 	if (mipi->force_leave_ulps && bfirsttime) {
 		MIPI_OUTP(MIPI_DSI_BASE + 0x00A8, MIPI_INP(MIPI_DSI_BASE + 0x00A8) | (1<<4)); 
 		wmb();
@@ -440,7 +443,7 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 		if (mipi_dsi_clk_init(pdev))
 			return -EPERM;
 
-		if (mipi_dsi_pdata->splash_is_enabled &&
+		if (mipi_dsi_pdata && mipi_dsi_pdata->splash_is_enabled &&
 			!mipi_dsi_pdata->splash_is_enabled()) {
 			mipi_dsi_ahb_ctrl(1);
 			MIPI_OUTP(MIPI_DSI_BASE + 0x118, 0);
@@ -496,7 +499,7 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 	else
 		mfd->dest = DISPLAY_LCD;
 
-	if (mdp_rev == MDP_REV_303 &&
+	if (mdp_rev == MDP_REV_303 && mipi_dsi_pdata &&
 		mipi_dsi_pdata->get_lane_config) {
 		if (mipi_dsi_pdata->get_lane_config() != 2) {
 			pr_info("Changing to DSI Single Mode Configuration\n");

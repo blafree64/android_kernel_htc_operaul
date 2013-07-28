@@ -174,6 +174,7 @@ struct msm_panel_info {
 	__u32 width;
 	__u32 height;
 	__u32 camera_backlight;
+	__u32 read_pointer;
 
 	struct mddi_panel_info mddi;
 	struct lcd_panel_info lcd;

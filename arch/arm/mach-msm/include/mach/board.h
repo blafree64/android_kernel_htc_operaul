@@ -355,6 +355,19 @@ struct msm_actuator_info {
 	int vcm_enable;
 	
 	int use_rawchip_af;
+
+	int otp_diviation;
+	
+	
+	void (*vcm_wa_vreg_on) (void);
+	void (*vcm_wa_vreg_off) (void);
+	
+	
+	void (*oisbinder_i2c_add_driver) (void* i2c_client);
+	void (*oisbinder_open_init) (void);
+	void (*oisbinder_power_down) (void);
+	int32_t (*oisbinder_act_set_ois_mode) (int ois_mode);
+	int32_t (*oisbinder_mappingTbl_i2c_write) (int startup_mode, void * sensor_actuator_info);
 	
 };
 
@@ -370,9 +383,10 @@ enum htc_camera_image_type_board {
 };
 
 enum cam_vcm_onoff_type {
-	CAM_VCM_OFF,
-	CAM_VCM_ON,
+       STATUS_OFF,
+       STATUS_ON,
 };
+
 
 struct msm_camera_sensor_info {
 	const char *sensor_name;
@@ -570,6 +584,7 @@ struct mipi_dsi_platform_data {
 	int (*get_lane_config)(void);
 	char (*splash_is_enabled)(void);
 	int target_type;
+    int (*deferred_reset_driver_ic)(void);
 };
 
 enum mipi_dsi_3d_ctrl {

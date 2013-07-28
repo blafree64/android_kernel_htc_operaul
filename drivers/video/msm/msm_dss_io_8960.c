@@ -536,6 +536,11 @@ void mipi_dsi_phy_init(int panel_ndx, struct msm_panel_info const *panel_info,
 
 	MIPI_OUTP(MIPI_DSI_BASE + 0x4b0, 0x04);
 
+	if (!panel_info) {
+		pr_err("%s: panel_info is null\n", __func__);
+		return;
+	}
+
 	pd = (panel_info->mipi).dsi_phy_db;
 
 	off = 0x0480;	

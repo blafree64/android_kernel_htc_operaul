@@ -15,6 +15,30 @@ config FB_MSM
 
 if FB_MSM
 
+config FB_MSM_RESOLUTION_OVERRIDE
+	bool "Support to fake different resolution for dst/src"
+	default n
+
+config FB_MSM_RESOLUTION_OVERRIDE_SRC_WIDTH
+	int "Override source width resolution"
+	depends on FB_MSM_RESOLUTION_OVERRIDE
+	default 1080
+
+config FB_MSM_RESOLUTION_OVERRIDE_SRC_HEIGHT
+	int "Override source height resolution"
+	depends on FB_MSM_RESOLUTION_OVERRIDE
+	default 1920
+
+config FB_MSM_RESOLUTION_OVERRIDE_DST_WIDTH
+	int "Override destination width resolution"
+	depends on FB_MSM_RESOLUTION_OVERRIDE
+	default 1080
+
+config FB_MSM_RESOLUTION_OVERRIDE_DST_HEIGHT
+	int "Override destination height resolution"
+	depends on FB_MSM_RESOLUTION_OVERRIDE
+	default 1920
+
 config FB_MSM_CABC
 	bool "Use CABC"
 	depends on FB_MSM
@@ -1011,9 +1035,17 @@ config FB_MSM_ESD_WORKAROUND
 
 config FB_MSM_CABC_LEVEL_CONTROL
 	bool "CABC LEVEL CONTROL"
-	default y
+	default n
 	---help---
 	  Use attribute to switch CABC level.
+
+config FB_MSM_UNDERFLOW_WORKAROUND
+	bool "Display underflow workaround"
+	default y if !TRACING
+	default n
+	---help---
+	  Force underflow color to black to avoid blue splash.
+	  Say Y here after CRC stage.
 
 if FB_MSM_MDSS
 	source "drivers/video/msm/mdss/Kconfig"

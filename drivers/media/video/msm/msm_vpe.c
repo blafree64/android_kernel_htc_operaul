@@ -408,8 +408,6 @@ static void vpe_send_outmsg(void)
 	rp.extlen = sizeof(*vpe_ctrl->pp_frame_info);
 	vpe_ctrl->state = VPE_STATE_INIT;   
 	vpe_ctrl->pp_frame_info = NULL;
-	if (!vpe_ctrl->vpe_irq_cnt)
-		vpe_ctrl->vpe_irq_cnt++;
 	vpe_ctrl->vpe_event_done = 1;
 	wake_up(&vpe_ctrl->vpe_event_queue);
 	spin_unlock_irqrestore(&vpe_ctrl->lock, flags);
@@ -485,8 +483,6 @@ int vpe_enable(uint32_t clk_rate)
 		goto vpe_clk_failed;
 	}
 
-	vpe_ctrl->vpe_irq_cnt = 0; 
-
 	return rc;
 
 vpe_clk_failed:
@@ -513,8 +509,7 @@ int vpe_disable(void)
 	}
 	spin_unlock_irqrestore(&vpe_ctrl->lock, flags);
 
-	if (vpe_ctrl->vpe_irq_cnt) {
-	rc = wait_event_interruptible_timeout(vpe_ctrl->vpe_event_queue,
+	rc = wait_event_timeout(vpe_ctrl->vpe_event_queue,
 		vpe_ctrl->vpe_event_done, msecs_to_jiffies(500));
 
 	if (rc < 0)
@@ -525,8 +520,6 @@ int vpe_disable(void)
 	} else
 		pr_info("%s: got vpe done event, rc %d\n", __func__, rc);
 	rc = 0;
-    }
-	vpe_ctrl->vpe_irq_cnt = 0;
 
 	disable_irq(vpe_ctrl->vpeirq->start);
 	tasklet_kill(&vpe_tasklet);

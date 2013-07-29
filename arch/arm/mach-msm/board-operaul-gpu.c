@@ -195,18 +195,20 @@ void operaul_init_gpu(void)
 {
     unsigned int version = socinfo_get_version();
 
+	/* Set the turbo speed for the AA and AB respectively */
+
 	if (cpu_is_msm8930aa())
 		kgsl_3d0_pdata.pwrlevel[0].gpu_freq = 450000000;
 
-    if (SOCINFO_VERSION_MAJOR(version) == 2) {
-		kgsl_3d0_pdata.chipid = ADRENO_CHIPID(3, 2, 0, 2);
-	} else {
-		if ((SOCINFO_VERSION_MAJOR(version) == 1) &&
-				(SOCINFO_VERSION_MINOR(version) == 1))
-			kgsl_3d0_pdata.chipid = ADRENO_CHIPID(3, 2, 0, 1);
-		else
-			kgsl_3d0_pdata.chipid = ADRENO_CHIPID(3, 2, 0, 0);
-	}
+	
+
+	/* Set up the chip ID based on the SoC version */
+
+	 if ((SOCINFO_VERSION_MAJOR(version) == 1) &&
+		(SOCINFO_VERSION_MINOR(version) == 2))
+		kgsl_3d0_pdata.chipid = ADRENO_CHIPID(3, 0, 5, 2);
+	else
+		kgsl_3d0_pdata.chipid = ADRENO_CHIPID(3, 0, 5, 0);
 
 	platform_device_register(&device_kgsl_3d0);
 }

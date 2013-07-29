@@ -25,7 +25,6 @@
 #include "sound/q6afe.h"
 
 #include "q6voice.h"
-#include "q6debug.h"
 
 #undef pr_info
 #undef pr_err
@@ -40,7 +39,7 @@
 #define VOC_PATH_PASSIVE 0
 #define VOC_PATH_FULL 1
 #define VOC_PATH_VOLTE_PASSIVE 2
-#define VOC_PATH_VOICE2_PASSIVE 3
+#define VOC_PATH_SGLTE_PASSIVE 3
 
 #define CVP_CAL_SIZE 245760
 #define CVS_CAL_SIZE 49152
@@ -154,9 +153,9 @@ uint16_t voc_get_session_id(char *name)
 		else if (!strncmp(name, "VoLTE session", 13))
 			session_id =
 			common.voice[VOC_PATH_VOLTE_PASSIVE].session_id;
-		else if (!strncmp(name, "Voice2 session", 14))
+		else if (!strncmp(name, "SGLTE session", 13))
 			session_id =
-			common.voice[VOC_PATH_VOICE2_PASSIVE].session_id;
+			common.voice[VOC_PATH_SGLTE_PASSIVE].session_id;
 		else
 			session_id = common.voice[VOC_PATH_FULL].session_id;
 
@@ -197,9 +196,9 @@ static bool is_volte_session(u16 session_id)
 	return (session_id == common.voice[VOC_PATH_VOLTE_PASSIVE].session_id);
 }
 
-static bool is_voice2_session(u16 session_id)
+static bool is_sglte_session(u16 session_id)
 {
-	return (session_id == common.voice[VOC_PATH_VOICE2_PASSIVE].session_id);
+	return (session_id == common.voice[VOC_PATH_SGLTE_PASSIVE].session_id);
 }
 
 static int voice_apr_register(void)
@@ -288,9 +287,9 @@ static int voice_send_dual_control_cmd(struct voice_data *v)
 		pr_err("%s: apr_mvm is NULL.\n", __func__);
 		return -EINVAL;
 	}
-	pr_debug("%s: VoLTE/Voice2 command to MVM\n", __func__);
+	pr_debug("%s: VoLTE/SGLTE command to MVM\n", __func__);
 	if (is_volte_session(v->session_id) ||
-			is_voice2_session(v->session_id)) {
+			is_sglte_session(v->session_id)) {
 
 		mvm_handle = voice_get_mvm_handle(v);
 		mvm_voice_ctl_cmd.hdr.hdr_field = APR_HDR_FIELD(
@@ -323,7 +322,7 @@ static int voice_send_dual_control_cmd(struct voice_data *v)
 				msecs_to_jiffies(TIMEOUT_MS));
 		if (!ret) {
 			pr_err("%s: wait_event timeout\n", __func__);
-			HTC_Q6_BUG();
+                        BUG();
 			ret = -EINVAL;
 			goto fail;
 		}
@@ -367,7 +366,7 @@ static int voice_create_mvm_cvs_session(struct voice_data *v)
 	if (!mvm_handle) {
 		if (is_voice_session(v->session_id) ||
 				is_volte_session(v->session_id) ||
-				is_voice2_session(v->session_id)) {
+				is_sglte_session(v->session_id)) {
 			mvm_session_cmd.hdr.hdr_field = APR_HDR_FIELD(
 						APR_MSG_TYPE_SEQ_CMD,
 						APR_HDR_LEN(APR_HDR_SIZE),
@@ -387,7 +386,7 @@ static int voice_create_mvm_cvs_session(struct voice_data *v)
 				strlcpy(mvm_session_cmd.mvm_session.name,
 				"default volte voice",
 				sizeof(mvm_session_cmd.mvm_session.name) - 1);
-			} else if (is_voice2_session(v->session_id)) {
+			} else if (is_sglte_session(v->session_id)) {
 				strlcpy(mvm_session_cmd.mvm_session.name,
 				"default modem voice2",
 				sizeof(mvm_session_cmd.mvm_session.name));
@@ -411,7 +410,7 @@ static int voice_create_mvm_cvs_session(struct voice_data *v)
 					msecs_to_jiffies(TIMEOUT_MS));
 			if (!ret) {
 				pr_err("%s: wait_event timeout\n", __func__);
-				HTC_Q6_BUG();
+                                BUG();
 				goto fail;
 			}
 		} else {
@@ -445,7 +444,7 @@ static int voice_create_mvm_cvs_session(struct voice_data *v)
 					 msecs_to_jiffies(TIMEOUT_MS));
 			if (!ret) {
 				pr_err("%s: wait_event timeout\n", __func__);
-				HTC_Q6_BUG();
+                                BUG();
 				goto fail;
 			}
 		}
@@ -456,7 +455,7 @@ static int voice_create_mvm_cvs_session(struct voice_data *v)
 	if (!cvs_handle) {
 		if (is_voice_session(v->session_id) ||
 			is_volte_session(v->session_id) ||
-			is_voice2_session(v->session_id)) {
+			is_sglte_session(v->session_id)) {
 			pr_debug("%s: creating CVS passive session\n",
 				 __func__);
 
@@ -477,7 +476,7 @@ static int voice_create_mvm_cvs_session(struct voice_data *v)
 				strlcpy(cvs_session_cmd.cvs_session.name,
 				"default volte voice",
 				sizeof(cvs_session_cmd.cvs_session.name) - 1);
-			} else if (is_voice2_session(v->session_id)) {
+			} else if (is_sglte_session(v->session_id)) {
 				strlcpy(cvs_session_cmd.cvs_session.name,
 				"default modem voice2",
 				sizeof(cvs_session_cmd.cvs_session.name));
@@ -499,7 +498,7 @@ static int voice_create_mvm_cvs_session(struct voice_data *v)
 					 msecs_to_jiffies(TIMEOUT_MS));
 			if (!ret) {
 				pr_err("%s: wait_event timeout\n", __func__);
-				HTC_Q6_BUG();
+                                BUG();
 				goto fail;
 			}
 			
@@ -549,7 +548,7 @@ static int voice_create_mvm_cvs_session(struct voice_data *v)
 					msecs_to_jiffies(TIMEOUT_MS));
 			if (!ret) {
 				pr_err("%s: wait_event timeout\n", __func__);
-				HTC_Q6_BUG();
+                                BUG();
 				goto fail;
 			}
 			
@@ -586,7 +585,7 @@ static int voice_create_mvm_cvs_session(struct voice_data *v)
 					 msecs_to_jiffies(TIMEOUT_MS));
 			if (!ret) {
 				pr_err("%s: wait_event timeout\n", __func__);
-				HTC_Q6_BUG();
+                                BUG();
 				goto fail;
 			}
 		}
@@ -650,7 +649,7 @@ static int voice_destroy_mvm_cvs_session(struct voice_data *v)
 					 msecs_to_jiffies(TIMEOUT_MS));
 		if (!ret) {
 			pr_err("%s: wait event timeout\n", __func__);
-			HTC_Q6_BUG();
+                        BUG();
 			goto fail;
 		}
 		
@@ -679,7 +678,7 @@ static int voice_destroy_mvm_cvs_session(struct voice_data *v)
 					 msecs_to_jiffies(TIMEOUT_MS));
 		if (!ret) {
 			pr_err("%s: wait event timeout\n", __func__);
-			HTC_Q6_BUG();
+                        BUG();
 			goto fail;
 		}
 		cvs_handle = 0;
@@ -712,7 +711,7 @@ static int voice_destroy_mvm_cvs_session(struct voice_data *v)
 					 msecs_to_jiffies(TIMEOUT_MS));
 		if (!ret) {
 			pr_err("%s: wait event timeout\n", __func__);
-			HTC_Q6_BUG();
+                        BUG();
 			goto fail;
 		}
 		mvm_handle = 0;
@@ -772,7 +771,7 @@ static int voice_send_tty_mode_cmd(struct voice_data *v)
 					 msecs_to_jiffies(TIMEOUT_MS));
 		if (!ret) {
 			pr_err("%s: wait_event timeout\n", __func__);
-			HTC_Q6_BUG();
+                        BUG();
 			goto fail;
 		}
 	}
@@ -828,7 +827,7 @@ static int voice_set_dtx(struct voice_data *v)
 				 msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
-		HTC_Q6_BUG();
+                BUG();
 		return -EINVAL;
 	}
 
@@ -882,7 +881,7 @@ static int voice_config_cvs_vocoder(struct voice_data *v)
 				 msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
-		HTC_Q6_BUG();
+                BUG();
 		goto fail;
 	}
 	
@@ -919,7 +918,7 @@ static int voice_config_cvs_vocoder(struct voice_data *v)
 					 msecs_to_jiffies(TIMEOUT_MS));
 		if (!ret) {
 			pr_err("%s: wait_event timeout\n", __func__);
-			HTC_Q6_BUG();
+                        BUG();
 			goto fail;
 		}
 		break;
@@ -955,7 +954,7 @@ static int voice_config_cvs_vocoder(struct voice_data *v)
 					 msecs_to_jiffies(TIMEOUT_MS));
 		if (!ret) {
 			pr_err("%s: wait_event timeout\n", __func__);
-			HTC_Q6_BUG();
+                        BUG();
 			goto fail;
 		}
 
@@ -997,7 +996,7 @@ static int voice_config_cvs_vocoder(struct voice_data *v)
 					 msecs_to_jiffies(TIMEOUT_MS));
 		if (!ret) {
 			pr_err("%s: wait_event timeout\n", __func__);
-			HTC_Q6_BUG();
+                        BUG();
 			goto fail;
 		}
 
@@ -1066,7 +1065,7 @@ static int voice_send_start_voice_cmd(struct voice_data *v)
 				 msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
-		HTC_Q6_BUG();
+                BUG();
 		goto fail;
 	}
 	return 0;
@@ -1117,7 +1116,7 @@ static int voice_send_disable_vocproc_cmd(struct voice_data *v)
 			msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
-		HTC_Q6_BUG();
+                BUG();
 		goto fail;
 	}
 
@@ -1189,7 +1188,7 @@ static int voice_send_set_device_cmd(struct voice_data *v)
 			msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
-		HTC_Q6_BUG();
+                BUG();
 		goto fail;
 	}
 
@@ -1240,7 +1239,7 @@ static int voice_send_stop_voice_cmd(struct voice_data *v)
 				 msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
-		HTC_Q6_BUG();
+                BUG();
 		goto fail;
 	}
 
@@ -1314,7 +1313,7 @@ static int voice_send_cvs_register_cal_cmd(struct voice_data *v)
 			msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
-		HTC_Q6_BUG();
+                BUG();
 		goto fail;
 	}
 	return 0;
@@ -1369,7 +1368,7 @@ static int voice_send_cvs_deregister_cal_cmd(struct voice_data *v)
 			msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
-		HTC_Q6_BUG();
+                BUG();
 		goto fail;
 	}
 	return 0;
@@ -1441,7 +1440,7 @@ static int voice_send_cvp_map_memory_cmd(struct voice_data *v)
 			msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
-		HTC_Q6_BUG();
+                BUG();
 		goto fail;
 	}
 	return 0;
@@ -1504,7 +1503,7 @@ static int voice_send_cvp_unmap_memory_cmd(struct voice_data *v)
 			msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
-		HTC_Q6_BUG();
+                BUG();
 		goto fail;
 	}
 	return 0;
@@ -1577,7 +1576,7 @@ static int voice_send_cvs_map_memory_cmd(struct voice_data *v)
 			msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
-		HTC_Q6_BUG();
+                BUG();
 		goto fail;
 	}
 	return 0;
@@ -1640,7 +1639,7 @@ static int voice_send_cvs_unmap_memory_cmd(struct voice_data *v)
 			msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
-		HTC_Q6_BUG();
+                BUG();
 		goto fail;
 	}
 	return 0;
@@ -1714,7 +1713,7 @@ static int voice_send_cvp_register_cal_cmd(struct voice_data *v)
 			msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
-		HTC_Q6_BUG();
+                BUG();
 		goto fail;
 	}
 	return 0;
@@ -1769,7 +1768,7 @@ static int voice_send_cvp_deregister_cal_cmd(struct voice_data *v)
 			msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
-		HTC_Q6_BUG();
+                BUG();
 		goto fail;
 	}
 	return 0;
@@ -1847,7 +1846,7 @@ static int voice_send_cvp_register_vol_cal_table_cmd(struct voice_data *v)
 			msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
-		HTC_Q6_BUG();
+                BUG();
 		goto fail;
 	}
 	return 0;
@@ -1904,7 +1903,7 @@ static int voice_send_cvp_deregister_vol_cal_table_cmd(struct voice_data *v)
 			msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
-		HTC_Q6_BUG();
+                BUG();
 		goto fail;
 	}
 	return 0;
@@ -1955,7 +1954,7 @@ static int voice_send_set_widevoice_enable_cmd(struct voice_data *v)
 			msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
-		HTC_Q6_BUG();
+                BUG();
 		goto fail;
 	}
 	return 0;
@@ -2013,7 +2012,7 @@ static int voice_send_set_pp_enable_cmd(struct voice_data *v,
 			msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
-		HTC_Q6_BUG();
+                BUG();
 		goto fail;
 	}
 	return 0;
@@ -2087,7 +2086,7 @@ static int voice_setup_vocproc(struct voice_data *v)
 				 msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
-		HTC_Q6_BUG();
+                BUG();
 		goto fail;
 	}
 
@@ -2192,7 +2191,7 @@ static int voice_send_enable_vocproc_cmd(struct voice_data *v)
 				msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
-		HTC_Q6_BUG();
+                BUG();
 		goto fail;
 	}
 
@@ -2253,7 +2252,7 @@ static int voice_send_netid_timing_cmd(struct voice_data *v)
 				 msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
-		HTC_Q6_BUG();
+                BUG();
 		goto fail;
 	}
 
@@ -2288,7 +2287,7 @@ static int voice_send_netid_timing_cmd(struct voice_data *v)
 				msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
-		HTC_Q6_BUG();
+                BUG();
 		goto fail;
 	}
 
@@ -2342,7 +2341,7 @@ static int voice_send_attach_vocproc_cmd(struct voice_data *v)
 				 msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
-		HTC_Q6_BUG();
+                BUG();
 		goto fail;
 	}
 
@@ -2405,7 +2404,7 @@ static int voice_destroy_vocproc(struct voice_data *v)
 				 msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
-		HTC_Q6_BUG();
+                BUG();
 		goto fail;
 	}
 
@@ -2442,7 +2441,7 @@ static int voice_destroy_vocproc(struct voice_data *v)
 				 msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
-		HTC_Q6_BUG();
+                BUG();
 		goto fail;
 	}
 
@@ -2500,8 +2499,8 @@ static int voice_send_mute_cmd(struct voice_data *v)
 				 msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
-		HTC_Q6_BUG();
-    }
+                BUG();
+        }
 	return 0;
 fail:
 	return -EINVAL;
@@ -2547,7 +2546,7 @@ static int voice_send_rx_device_mute_cmd(struct voice_data *v)
 				 msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
-		HTC_Q6_BUG();
+                BUG();
 		return -EINVAL;
 	}
 	return 0;
@@ -2593,7 +2592,7 @@ static int voice_send_vol_index_cmd(struct voice_data *v)
 				 msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
-		HTC_Q6_BUG();
+                BUG();
 		return -EINVAL;
 	}
 	return 0;
@@ -2671,7 +2670,7 @@ static int voice_cvs_start_record(struct voice_data *v, uint32_t rec_mode)
 
 		if (!ret) {
 			pr_err("%s: wait_event timeout\n", __func__);
-			HTC_Q6_BUG();
+                        BUG();
 			goto fail;
 		}
 		v->rec_info.recording = 1;
@@ -2730,7 +2729,7 @@ static int voice_cvs_stop_record(struct voice_data *v)
 				 msecs_to_jiffies(TIMEOUT_MS));
 		if (!ret) {
 			pr_err("%s: wait_event timeout\n", __func__);
-			HTC_Q6_BUG();
+                        BUG();
 			goto fail;
 		}
 		v->rec_info.recording = 0;
@@ -2903,7 +2902,7 @@ static int voice_cvs_start_playback(struct voice_data *v)
 				 msecs_to_jiffies(TIMEOUT_MS));
 		if (!ret) {
 			pr_err("%s: wait_event timeout\n", __func__);
-			HTC_Q6_BUG();
+                        BUG();
 			goto fail;
 		}
 
@@ -2967,7 +2966,7 @@ static int voice_cvs_stop_playback(struct voice_data *v)
 					 msecs_to_jiffies(TIMEOUT_MS));
 		if (!ret) {
 			pr_err("%s: wait_event timeout\n", __func__);
-			HTC_Q6_BUG();
+                        BUG();
 			goto fail;
 		}
 

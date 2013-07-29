@@ -172,8 +172,8 @@ static button buttons[] = {
       {595, "MENU"},
 };
         
-int s2w_startbutton = -1;
-int s2w_endbutton = -1;
+int s2w_startbutton = 0;
+int s2w_endbutton = 2;
 
 int sweep2wake_buttonset(const char * button_name) {
   int i = 0;  

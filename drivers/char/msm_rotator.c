@@ -895,7 +895,7 @@ static int msm_rotator_do_rotate(unsigned long arg)
 	struct msm_rotator_data_info info;
 	unsigned int in_paddr, out_paddr;
 	unsigned long src_len, dst_len;
-	int use_imem = 0, rc = 0, s, secure_flag = 0;
+	int use_imem = 0, rc = 0, s;
 	struct file *srcp0_file = NULL, *dstp0_file = NULL;
 	struct file *srcp1_file = NULL, *dstp1_file = NULL;
 	struct ion_handle *srcp0_ihdl = NULL, *dstp0_ihdl = NULL;
@@ -1169,15 +1169,14 @@ do_rotate_exit:
 #endif
 	schedule_delayed_work(&msm_rotator_dev->rot_clk_work, HZ);
 do_rotate_unlock_mutex:
-	if (s < MAX_SESSIONS)
-		secure_flag = msm_rotator_dev->img_info[s]->secure;
-
-	put_img(dstp1_file, dstp1_ihdl, ROTATOR_DST_DOMAIN, secure_flag);
+	put_img(dstp1_file, dstp1_ihdl, ROTATOR_DST_DOMAIN,
+		msm_rotator_dev->img_info[s]->secure);
 	put_img(srcp1_file, srcp1_ihdl, ROTATOR_SRC_DOMAIN, 0);
-	put_img(dstp0_file, dstp0_ihdl, ROTATOR_DST_DOMAIN, secure_flag);
+	put_img(dstp0_file, dstp0_ihdl, ROTATOR_DST_DOMAIN,
+		msm_rotator_dev->img_info[s]->secure);
 
 	
-	if ((info.src.flags & MDP_MEMORY_ID_TYPE_FB) && srcp0_file)
+	if (info.src.flags & MDP_MEMORY_ID_TYPE_FB)
 		fput_light(srcp0_file, ps0_need);
 	else
 		put_img(srcp0_file, srcp0_ihdl, ROTATOR_SRC_DOMAIN, 0);
@@ -1503,8 +1502,7 @@ static int __devinit msm_rotator_probe(struct platform_device *pdev)
 	pdata = pdev->dev.platform_data;
 	if (!pdata) {
 		pr_err("%s: Unable to get platform data\n", __func__);
-		rc = -ENODEV;
-		goto error_pdata;
+		return -ENODEV;
 	}
 
 	number_of_clks = pdata->number_of_clocks;
@@ -1611,11 +1609,6 @@ static int __devinit msm_rotator_probe(struct platform_device *pdev)
 	}
 	msm_rotator_dev->io_base = ioremap(res->start,
 					   resource_size(res));
-	if (!msm_rotator_dev->io_base) {
-		printk(KERN_ALERT "%s: ioremap failed\n", DRIVER_NAME);
-		rc = -ENODEV;
-		goto error_get_resource;
-	}
 
 #ifdef CONFIG_MSM_ROTATOR_USE_IMEM
 	if (msm_rotator_dev->imem_clk)
@@ -1715,7 +1708,6 @@ error_pclk:
 		clk_put(msm_rotator_dev->imem_clk);
 error_imem_clk:
 	mutex_destroy(&msm_rotator_dev->imem_lock);
-error_pdata:
 	kfree(msm_rotator_dev);
 	return rc;
 }

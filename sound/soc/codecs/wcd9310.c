@@ -4696,6 +4696,9 @@ static int tabla_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 				break;
 			}
 		}
+
+		if(j >= ARRAY_SIZE(tabla_dai))
+			break;
 		if (tabla_p->dai[j].ch_act == tabla_p->dai[j].ch_tot) {
 			ret = tabla_codec_enable_chmask(tabla_p,
 							SND_SOC_DAPM_POST_PMU,
@@ -4726,7 +4729,11 @@ static int tabla_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 				break;
 			}
 		}
-		if (!tabla_p->dai[j].ch_act) {
+
+		if(j >= ARRAY_SIZE(tabla_dai))
+			break;
+
+		if (!tabla_p->dai[j].ch_act && tabla_p->dai[j].ch_tot > 0) {
 			ret = wcd9xxx_close_slim_sch_rx(tabla,
 						tabla_p->dai[j].ch_num,
 						tabla_p->dai[j].ch_tot);
@@ -4796,6 +4803,8 @@ static int tabla_codec_enable_slimtx(struct snd_soc_dapm_widget *w,
 				break;
 			}
 		}
+		if(j >= ARRAY_SIZE(tabla_dai))
+			break;
 		if (tabla_p->dai[j].ch_act == tabla_p->dai[j].ch_tot) {
 			ret = tabla_codec_enable_chmask(tabla_p,
 							SND_SOC_DAPM_POST_PMU,
@@ -4818,7 +4827,9 @@ static int tabla_codec_enable_slimtx(struct snd_soc_dapm_widget *w,
 				break;
 			}
 		}
-		if (!tabla_p->dai[j].ch_act) {
+		if(j >= ARRAY_SIZE(tabla_dai))
+			break;
+		if (!tabla_p->dai[j].ch_act && tabla_p->dai[j].ch_tot > 0) {
 			ret = wcd9xxx_close_slim_sch_tx(tabla,
 						tabla_p->dai[j].ch_num,
 						tabla_p->dai[j].ch_tot);

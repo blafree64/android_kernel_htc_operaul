@@ -87,7 +87,6 @@ struct snd_usb_substream {
 	struct snd_urb_ctx syncurb[SYNC_URBS];	
 	char *syncbuf;				
 	dma_addr_t sync_dma;			
-	unsigned int speed;		/* USB_SPEED_XXX */
 
 	u64 formats;			
 	unsigned int num_formats;		

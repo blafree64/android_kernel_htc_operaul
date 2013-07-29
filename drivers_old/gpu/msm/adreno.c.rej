@@ -1,0 +1,10 @@
+--- drivers/gpu/msm/adreno.c
++++ drivers/gpu/msm/adreno.c
+@@ -597,6 +597,7 @@
+       adreno_dev->gpurev = adreno_gpulist[i].gpurev;
+       adreno_dev->gpudev = adreno_gpulist[i].gpudev;
+       adreno_dev->pfp_fwfile = adreno_gpulist[i].pfpfw;
++pr_info("TESTESTEST: i: %u, file: %s", i, adreno_gpulist[i].pm4fw);
+       adreno_dev->pm4_fwfile = adreno_gpulist[i].pm4fw;
+       adreno_dev->istore_size = adreno_gpulist[i].istore_size;
+       adreno_dev->pix_shader_start = adreno_gpulist[i].pix_shader_start;

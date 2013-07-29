@@ -88,7 +88,8 @@ static ssize_t regmap_map_read_file(struct file *file, char __user *user_buf,
 
 		
 		if (p >= *ppos) {
-			if (buf_pos + 1 + tot_len >= count)
+			
+			if (buf_pos >= count - 1 - tot_len)
 				break;
 
 			

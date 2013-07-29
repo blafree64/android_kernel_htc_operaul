@@ -42,21 +42,6 @@ static struct notifier_block cpu_restart_notifier = {
 	.notifier_call = cpu_restart_call,
 };
 
-static int modem_trigger_stall_cpu_hotplug = 0;
-static int modem_trigger_cpu_restart_call
-(struct notifier_block *this, unsigned long code, void *_cmd)
-{
-	if (code == MODEM_SUBSYS_BEFORE_SHUTDOWN)
-		modem_trigger_stall_cpu_hotplug = 1;
-	else
-		modem_trigger_stall_cpu_hotplug = 0;
-
-	return NOTIFY_DONE;
-}
-static struct notifier_block modem_trigger_cpu_restart_notifier = {
-	.notifier_call = modem_trigger_cpu_restart_call,
-};
-
 static ssize_t show_online(struct device *dev,
 			   struct device_attribute *attr,
 			   char *buf)
@@ -73,7 +58,7 @@ static ssize_t __ref store_online(struct device *dev,
 	struct cpu *cpu = container_of(dev, struct cpu, dev);
 	ssize_t ret;
 
-	if(stall_cpu_hotplug || modem_trigger_stall_cpu_hotplug) {
+	if(stall_cpu_hotplug) {
 		pr_info("[K] skip cpu%u hotplug while system restarting.\n",
 		       cpu->dev.id);
 		return -EBUSY;
@@ -102,7 +87,7 @@ static ssize_t __ref store_online(struct device *dev,
 }
 static DEVICE_ATTR(online, 0644, show_online, store_online);
 
-static void register_cpu_control(struct cpu *cpu)
+static void __cpuinit register_cpu_control(struct cpu *cpu)
 {
 	device_create_file(&cpu->dev, &dev_attr_online);
 }
@@ -237,7 +222,7 @@ static void cpu_device_release(struct device *dev)
 {
 }
 
-int register_cpu(struct cpu *cpu, int num)
+int __cpuinit register_cpu(struct cpu *cpu, int num)
 {
 	int error;
 
@@ -337,6 +322,5 @@ void __init cpu_dev_init(void)
 #endif
 #if defined(CONFIG_HOTPLUG_CPU)
 	register_reboot_notifier(&cpu_restart_notifier);
-	register_subsys_reboot_notifier(&modem_trigger_cpu_restart_notifier);
 #endif
 }

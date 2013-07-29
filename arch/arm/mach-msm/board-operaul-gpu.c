@@ -26,6 +26,30 @@
 
 #include "../board-operaul.h"
 
+#ifdef CONFIG_MSM_DCVS
+static struct msm_dcvs_freq_entry grp3d_freq[] = {
+       {0, 0, 333932},
+       {0, 0, 497532},
+       {0, 0, 707610},
+       {0, 0, 844545},
+};
+
+static struct msm_dcvs_core_info grp3d_core_info = {
+       .freq_tbl = &grp3d_freq[0],
+       .core_param = {
+               .max_time_us = 100000,
+               .num_freq = ARRAY_SIZE(grp3d_freq),
+       },
+       .algo_param = {
+               .slack_time_us = 39000,
+               .disable_pc_threshold = 86000,
+               .ss_window_size = 1000000,
+               .ss_util_pct = 95,
+               .em_max_util_pct = 97,
+               .ss_iobusy_conv = 100,
+       },
+};
+#endif 
 #ifdef CONFIG_MSM_BUS_SCALING
 static struct msm_bus_vectors grp3d_init_vectors[] = {
 	{
@@ -151,6 +175,9 @@ static struct kgsl_device_platform_data kgsl_3d0_pdata = {
 #endif
 	.iommu_data = kgsl_3d0_iommu_data,
 	.iommu_count = ARRAY_SIZE(kgsl_3d0_iommu_data),
+#ifdef CONFIG_MSM_DCVS
+	.core_info = &grp3d_core_info,
+#endif
 	.snapshot_address = MSM_GPU_SNAP_SHOT_3D0_PHYS,
 };
 
@@ -166,8 +193,20 @@ static struct platform_device device_kgsl_3d0 = {
 
 void operaul_init_gpu(void)
 {
+    unsigned int version = socinfo_get_version();
+
 	if (cpu_is_msm8930aa())
 		kgsl_3d0_pdata.pwrlevel[0].gpu_freq = 450000000;
+
+    if (SOCINFO_VERSION_MAJOR(version) == 2) {
+		kgsl_3d0_pdata.chipid = ADRENO_CHIPID(3, 2, 0, 2);
+	} else {
+		if ((SOCINFO_VERSION_MAJOR(version) == 1) &&
+				(SOCINFO_VERSION_MINOR(version) == 1))
+			kgsl_3d0_pdata.chipid = ADRENO_CHIPID(3, 2, 0, 1);
+		else
+			kgsl_3d0_pdata.chipid = ADRENO_CHIPID(3, 2, 0, 0);
+	}
 
 	platform_device_register(&device_kgsl_3d0);
 }

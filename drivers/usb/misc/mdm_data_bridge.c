@@ -22,7 +22,7 @@
 #include <mach/usb_bridge.h>
 #include <mach/board_htc.h>
 
-#define MAX_RX_URBS			50
+#define MAX_RX_URBS			100
 #define RMNET_RX_BUFSIZE		2048
 
 #define STOP_SUBMIT_URB_LIMIT		500

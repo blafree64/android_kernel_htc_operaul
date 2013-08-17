@@ -19,6 +19,8 @@
 #include <linux/mmc/core.h>
 #include <linux/mmc/pm.h>
 #include <linux/android_alarm.h>
+
+#define SD_DEBOUNCE_DEBUG	1
 struct mmc_ios {
 	unsigned int	clock;			
 	unsigned short	vdd;
@@ -275,8 +277,7 @@ struct mmc_host {
 	struct delayed_work	detect;
 	struct delayed_work	remove;
 	struct wake_lock	detect_wake_lock;
-        const char              *wlock_name;
-	int			detect_change;	/* card detect flag */
+	int			detect_change;	
 	struct mmc_hotplug	hotplug;
 
 	const struct mmc_bus_ops *bus_ops;	
@@ -330,8 +331,9 @@ struct mmc_host {
 		ktime_t wtime_drv;	   
 		ktime_t start;
 	} perf;
-	bool perf_enable;
 #endif
+	bool perf_enable;
+	ktime_t rq_start;
 
 	struct mmc_ios saved_ios;
 	unsigned long		private[0] ____cacheline_aligned;

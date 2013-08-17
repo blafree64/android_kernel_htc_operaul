@@ -305,8 +305,9 @@ struct msmsdcc_sps_data {
 	unsigned int			dest_pipe_index;
 	unsigned int			busy;
 	unsigned int			xfer_req_cnt;
-	bool				pipe_reset_pending;
-	bool				reset_device;
+	bool                            pipe_reset_pending;
+	bool                            reset_device;
+	bool                            reset_bam;
 	struct tasklet_struct		tlet;
 };
 
@@ -344,7 +345,6 @@ struct msmsdcc_host {
 	unsigned int		eject;		
 
 	spinlock_t		lock;
-	spinlock_t		cdpin_lock;
 
 	unsigned int		clk_rate;	
 	unsigned int		pclk_rate;
@@ -420,6 +420,7 @@ struct msmsdcc_host {
 	struct proc_dir_entry *wr_perf_proc;
 	struct proc_dir_entry *burst_proc;
 	struct proc_dir_entry *bkops_proc;
+	struct proc_dir_entry *speed_class;
 
 #ifdef CONFIG_WIFI_MMC
     bool is_runtime_resumed;
@@ -427,6 +428,9 @@ struct msmsdcc_host {
 #ifdef CONFIG_WIMAX
     bool is_runtime_resumed_wimax;
 #endif
+	
+	unsigned int cont_tuning_cnt;
+	
 
 };
 

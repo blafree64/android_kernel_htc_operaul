@@ -210,6 +210,17 @@ static int usb_probe_device(struct device *dev)
 
 	if (!error)
 		error = udriver->probe(udev);
+
+
+#ifdef HTC_PM_DBG
+	if (!strncmp(dev_name(&udev->dev), "1-1", 3) && ( get_radio_flag() & 0x0001 ) ) {
+		udev->enable_pm_debug = 1;
+	} else {
+		udev->enable_pm_debug = 0;
+	}
+	dev_info(&udev->dev, "udev(%s)->enable_pm_debug=[%d]\n", dev_name(&udev->dev), udev->enable_pm_debug);
+#endif
+
 	return error;
 }
 
@@ -283,6 +294,7 @@ static int usb_probe_interface(struct device *dev)
 		goto err;
 
 	intf->condition = USB_INTERFACE_BOUND;
+	dev_info(dev, "%s[%d] needs_remote_wakeup:%d\n", __func__, __LINE__, intf->needs_remote_wakeup);
 	usb_autosuspend_device(udev);
 	return error;
 
@@ -853,14 +865,6 @@ static int usb_resume_interface(struct usb_device *udev,
 {
 	struct usb_driver	*driver;
 	int			status = 0;
-	int log_enable = 0;
-#if defined(CONFIG_MACH_DUMMY) || defined(CONFIG_MACH_DUMMY) || defined(CONFIG_MACH_DUMMY)
-	if (!strncmp(dev_name(&udev->dev), "usb1", 4) && (get_radio_flag() & 0x1)) {
-		log_enable = 1;
-	}
-#endif
-	if ( log_enable == 1 )
-		dev_info(&udev->dev, "%s[%d] udev->state=[%d]\n", __func__, __LINE__, udev->state);
 
 	if (udev->state == USB_STATE_NOTATTACHED)
 		goto done;
@@ -874,12 +878,8 @@ static int usb_resume_interface(struct usb_device *udev,
 
 		
 		if (intf->needs_altsetting0 && !intf->dev.power.is_prepared) {
-			if ( log_enable == 1 )
-				dev_info(&udev->dev, "%s[%d] usb_set_interface+\n", __func__, __LINE__);
 			usb_set_interface(udev, intf->altsetting[0].
 					desc.bInterfaceNumber, 0);
-			if ( log_enable == 1 )
-				dev_info(&udev->dev, "%s[%d] usb_set_interface-\n", __func__, __LINE__);
 			intf->needs_altsetting0 = 0;
 		}
 		goto done;
@@ -895,13 +895,7 @@ static int usb_resume_interface(struct usb_device *udev,
 	if (reset_resume) {
 		if (driver->reset_resume) {
 
-			if ( log_enable == 1 )
-				dev_info(&udev->dev, "%s[%d] reset_resume+\n", __func__, __LINE__);
-
 			status = driver->reset_resume(intf);
-
-			if ( log_enable == 1 )
-				dev_info(&udev->dev, "%s[%d] reset_resume-\n", __func__, __LINE__);
 
 			if (status)
 				dev_err(&intf->dev, "%s error %d\n",
@@ -912,11 +906,7 @@ static int usb_resume_interface(struct usb_device *udev,
 					"reset_resume", driver->name);
 		}
 	} else {
-		if ( log_enable == 1 )
-			dev_info(&udev->dev, "%s[%d] resume+\n", __func__, __LINE__);
 		status = driver->resume(intf);
-		if ( log_enable == 1 )
-			dev_info(&udev->dev, "%s[%d] resume-\n", __func__, __LINE__);
 		if (status)
 			dev_err(&intf->dev, "resume error %d\n", status);
 	}
@@ -941,7 +931,8 @@ static int usb_suspend_both(struct usb_device *udev, pm_message_t msg)
 	struct usb_interface	*intf;
 
 	
-	dev_info(&udev->dev, "%s+\n", __func__);
+	if (get_radio_flag() & RADIO_FLAG_USB_UPLOAD)
+		dev_info(&udev->dev, "%s+\n", __func__);
 
 	if (udev->state == USB_STATE_NOTATTACHED ||
 			udev->state == USB_STATE_SUSPENDED)
@@ -951,7 +942,8 @@ static int usb_suspend_both(struct usb_device *udev, pm_message_t msg)
 	if (udev->actconfig) {
 		n = udev->actconfig->desc.bNumInterfaces;
 		
-		dev_info(&udev->dev, "%s[%d] suspend intf n:%d\n", __func__, __LINE__, n);
+		if (get_radio_flag() & RADIO_FLAG_USB_UPLOAD)
+			dev_info(&udev->dev, "%s[%d] suspend intf n:%d\n", __func__, __LINE__, n);
 
 		for (i = n - 1; i >= 0; --i) {
 			intf = udev->actconfig->interface[i];
@@ -997,7 +989,8 @@ static int usb_suspend_both(struct usb_device *udev, pm_message_t msg)
 	dev_vdbg(&udev->dev, "%s: status %d\n", __func__, status);
 
 	
-	dev_info(&udev->dev, "%s-: status %d\n", __func__, status);
+	if (get_radio_flag() & RADIO_FLAG_USB_UPLOAD)
+		dev_info(&udev->dev, "%s-: status %d\n", __func__, status);
 
 	return status;
 }
@@ -1007,32 +1000,20 @@ static int usb_resume_both(struct usb_device *udev, pm_message_t msg)
 	int			status = 0;
 	int			i;
 	struct usb_interface	*intf;
-	int log_enable = 0;
-
-#if defined(CONFIG_MACH_DUMMY) || defined(CONFIG_MACH_DUMMY) || defined(CONFIG_MACH_DUMMY)
-	if (!strncmp(dev_name(&udev->dev), "usb1", 4) && (get_radio_flag() & 0x1)) {
-		log_enable = 1;
-	}
-#endif
 
 	if (udev->state == USB_STATE_NOTATTACHED) {
-		if ( log_enable == 1 )
-			dev_info(&udev->dev, "%s[%d] udev->state == USB_STATE_NOTATTACHED\n", __func__, __LINE__);
 		status = -ENODEV;
 		goto done;
 	}
 	udev->can_submit = 1;
 
 	
-	dev_info(&udev->dev, "%s+\n", __func__);
+	if (get_radio_flag() & RADIO_FLAG_USB_UPLOAD)
+		dev_info(&udev->dev, "%s+\n", __func__);
 
 	
 	if (udev->state == USB_STATE_SUSPENDED || udev->reset_resume) {
-		if ( log_enable == 1 )
-			dev_info(&udev->dev, "%s[%d] usb_resume_device+\n", __func__, __LINE__);
 		status = usb_resume_device(udev, msg);
-		if ( log_enable == 1 )
-			dev_info(&udev->dev, "%s[%d] usb_resume_device-\n", __func__, __LINE__);
 	}
 
 	
@@ -1044,12 +1025,8 @@ static int usb_resume_both(struct usb_device *udev, pm_message_t msg)
 
 		for (i = 0; i < udev->actconfig->desc.bNumInterfaces; i++) {
 			intf = udev->actconfig->interface[i];
-			if ( log_enable == 1 )
-				dev_info(&udev->dev, "%s[%d] usb_resume_interface+\n", __func__, __LINE__);
 			usb_resume_interface(udev, intf, msg,
 					udev->reset_resume);
-			if ( log_enable == 1 )
-				dev_info(&udev->dev, "%s[%d] usb_resume_interface-\n", __func__, __LINE__);
 		}
 	}
 	usb_mark_last_busy(udev);
@@ -1063,7 +1040,8 @@ static int usb_resume_both(struct usb_device *udev, pm_message_t msg)
 	dev_vdbg(&udev->dev, "%s: status %d\n", __func__, status);
 
 	
-	dev_info(&udev->dev, "%s-: status %d\n", __func__, status);
+	if (get_radio_flag() & RADIO_FLAG_USB_UPLOAD)
+		dev_info(&udev->dev, "%s-: status %d\n", __func__, status);
 
 	if (!status)
 		udev->reset_resume = 0;
@@ -1171,6 +1149,15 @@ int usb_suspend(struct device *dev, pm_message_t msg)
 {
 	struct usb_device	*udev = to_usb_device(dev);
 
+	if (udev->bus->skip_resume) {
+		if (udev->state == USB_STATE_SUSPENDED) {
+			return 0;
+		} else {
+			dev_err(dev, "abort suspend\n");
+			return -EBUSY;
+		}
+	}
+
 	unbind_no_pm_drivers_interfaces(udev);
 
 	choose_wakeup(udev, msg);
@@ -1190,6 +1177,15 @@ int usb_resume(struct device *dev, pm_message_t msg)
 {
 	struct usb_device	*udev = to_usb_device(dev);
 	int			status;
+
+        /*
+         * Some buses would like to keep their devices in suspend
+         * state after system resume.  Their resume happen when
+         * a remote wakeup is detected or interface driver start
+         * I/O.
+         */
+	if (udev->bus->skip_resume)
+               return 0;
 
 	pm_runtime_get_sync(dev->parent);
 	status = usb_resume_both(udev, msg);
@@ -1236,24 +1232,8 @@ void usb_autosuspend_device(struct usb_device *udev)
 int usb_autoresume_device(struct usb_device *udev)
 {
 	int	status;
-	int log_enable = 0;
-
-#if defined(CONFIG_MACH_DUMMY) || defined(CONFIG_MACH_DUMMY) || defined(CONFIG_MACH_DUMMY)
-	if (get_radio_flag() & 0x1) {
-		dev_info(&udev->dev, "dev_name(udev->dev)=[%s]\n", dev_name(&udev->dev));
-		if (!strncmp(dev_name(&udev->dev), "1-1", 3)) {
-			log_enable = 1;
-		}
-	}
-#endif
-
-	if ( log_enable == 1 )
-		dev_info(&udev->dev, "%s[%d] pm_runtime_get_sync+\n", __func__, __LINE__);
 
 	status = pm_runtime_get_sync(&udev->dev);
-
-	if ( log_enable == 1 )
-		dev_info(&udev->dev, "%s[%d] pm_runtime_get_sync-, status=[%d]\n", __func__, __LINE__, status);
 
 	if (status < 0)
 		pm_runtime_put_sync(&udev->dev);
@@ -1270,6 +1250,13 @@ void usb_autopm_put_interface(struct usb_interface *intf)
 	struct usb_device	*udev = interface_to_usbdev(intf);
 	int			status;
 
+
+#ifdef HTC_PM_DBG
+	if ( udev && udev->enable_pm_debug && intf ) {
+		usb_mark_intf_last_busy(intf, false);
+	}
+#endif
+
 	usb_mark_last_busy(udev);
 	atomic_dec(&intf->pm_usage_cnt);
 	status = pm_runtime_put_sync(&intf->dev);
@@ -1284,6 +1271,12 @@ void usb_autopm_put_interface_async(struct usb_interface *intf)
 	struct usb_device	*udev = interface_to_usbdev(intf);
 	int			status;
 
+#ifdef HTC_PM_DBG
+	if ( udev && udev->enable_pm_debug && intf ) {
+		usb_mark_intf_last_busy(intf, false);
+	}
+#endif
+
 	usb_mark_last_busy(udev);
 	atomic_dec(&intf->pm_usage_cnt);
 	status = pm_runtime_put(&intf->dev);
@@ -1296,6 +1289,12 @@ EXPORT_SYMBOL_GPL(usb_autopm_put_interface_async);
 void usb_autopm_put_interface_no_suspend(struct usb_interface *intf)
 {
 	struct usb_device	*udev = interface_to_usbdev(intf);
+
+#ifdef HTC_PM_DBG
+	if ( udev && udev->enable_pm_debug && intf ) {
+		usb_mark_intf_last_busy(intf, false);
+	}
+#endif
 
 	usb_mark_last_busy(udev);
 	atomic_dec(&intf->pm_usage_cnt);
@@ -1342,6 +1341,12 @@ EXPORT_SYMBOL_GPL(usb_autopm_get_interface_async);
 void usb_autopm_get_interface_no_resume(struct usb_interface *intf)
 {
 	struct usb_device	*udev = interface_to_usbdev(intf);
+
+#ifdef HTC_PM_DBG
+	if ( udev && udev->enable_pm_debug && intf ) {
+		usb_mark_intf_last_busy(intf, false);
+	}
+#endif
 
 	usb_mark_last_busy(udev);
 	atomic_inc(&intf->pm_usage_cnt);
@@ -1416,18 +1421,8 @@ int usb_runtime_resume(struct device *dev)
 {
 	struct usb_device	*udev = to_usb_device(dev);
 	int			status;
-	int log_enable = 0;
-#if defined(CONFIG_MACH_DUMMY) || defined(CONFIG_MACH_DUMMY) || defined(CONFIG_MACH_DUMMY)
-	if (!strncmp(dev_name(dev), "usb1", 4) && (get_radio_flag() & 0x1)) {
-		log_enable = 1;
-	}
-#endif
 
-	if ( log_enable == 1 )
-		dev_info(dev, "%s[%d] usb_resume_both+\n", __func__, __LINE__);
 	status = usb_resume_both(udev, PMSG_AUTO_RESUME);
-	if ( log_enable == 1 )
-		dev_info(dev, "%s[%d] usb_resume_both-\n", __func__, __LINE__);
 	return status;
 }
 
@@ -1455,6 +1450,22 @@ int usb_set_usb2_hardware_lpm(struct usb_device *udev, int enable)
 }
 
 #endif 
+
+int usb_set_interrupt_latency(struct usb_device *udev, int latency)
+{
+	struct usb_hcd *hcd = bus_to_hcd(udev->bus);
+	int ret = -EOPNOTSUPP;
+	pr_info("[%s]usb_set_interrupt_latency+\n", __func__);
+
+	if (hcd->driver->set_int_latency) {
+		ret = hcd->driver->set_int_latency(hcd, latency);
+	} else {
+		pr_info("[%s] set_int_latency is null\n", __func__);
+	}
+
+	pr_info("[%s] usb_set_interrupt_latency-, r=[%d]\n", __func__, ret);
+	return ret;
+}
 
 struct bus_type usb_bus_type = {
 	.name =		"usb",

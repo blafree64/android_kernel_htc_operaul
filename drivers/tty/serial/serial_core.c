@@ -41,7 +41,9 @@
 #include <mach/gpio.h>
 #include <mach/msm_serial_hs.h>
 
-#include "../../../arch/arm/mach-msm/board-jel_dd.h"
+#define GPIO_GSM_AP_XMM_WAKE	(91)
+#define GPIO_GSM_AP_XMM_STATUS	(97)
+#define GPIO_GSM_XMM_AP_STATUS	(12)
 
 extern u8 radio_state;
 extern u8 modem_fatal;
@@ -418,12 +420,12 @@ static int uart_write(struct tty_struct *tty,
 		imc_msm_hs_request_clock_on(port);
 
 		pr_uartdm_debug("%s %s PDA_INT_BB + \n",__func__, tty->name);
-		gpio_set_value(JEL_DD_GPIO_GSM_AP_XMM_WAKE, 1);
+		gpio_set_value(GPIO_GSM_AP_XMM_WAKE, 1);
 		mdelay(1);
-		while(!gpio_get_value(JEL_DD_GPIO_GSM_XMM_AP_STATUS)){
-			gpio_set_value(JEL_DD_GPIO_GSM_AP_XMM_STATUS, 0);
+		while(!gpio_get_value(GPIO_GSM_XMM_AP_STATUS)){
+			gpio_set_value(GPIO_GSM_AP_XMM_STATUS, 0);
 			msleep(5);
-			gpio_set_value(JEL_DD_GPIO_GSM_AP_XMM_STATUS, 1);
+			gpio_set_value(GPIO_GSM_AP_XMM_STATUS, 1);
 			msleep(20);
 			if (retries>40){
 				printk("[GSM_RADIO] %s %s wait for BB_STATUS + timeout \n",__func__, tty->name);
@@ -1529,8 +1531,6 @@ int uart_suspend_port(struct uart_driver *drv, struct uart_port *uport)
 		mutex_unlock(&port->mutex);
 		return 0;
 	}
-	put_device(tty_dev);
-
 	if (console_suspend_enabled || !uart_console(uport))
 		uport->suspended = 1;
 
@@ -1590,11 +1590,9 @@ int uart_resume_port(struct uart_driver *drv, struct uart_port *uport)
 			disable_irq_wake(uport->irq);
 			uport->irq_wake = 0;
 		}
-		put_device(tty_dev);
 		mutex_unlock(&port->mutex);
 		return 0;
 	}
-	put_device(tty_dev);
 	uport->suspended = 0;
 
 	if (uart_console(uport)) {

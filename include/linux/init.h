@@ -35,8 +35,6 @@
 #define __devexitdata    __section(.devexit.data)
 #define __devexitconst   __section(.devexit.rodata)
 
-
-/* Used for HOTPLUG_CPU */
 #define __cpuinit        __cold
 #define __cpuinitdata
 #define __cpuinitconst

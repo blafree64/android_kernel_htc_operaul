@@ -165,6 +165,7 @@ struct msm_hs_port {
 	struct work_struct clock_off_w; 
 	struct workqueue_struct *hsuart_wq; 
 	struct mutex clk_mutex; 
+	bool tty_flush_receive;
 };
 
 #define MSM_UARTDM_BURST_SIZE 16   
@@ -429,6 +430,29 @@ static int __devexit msm_hs_remove(struct platform_device *pdev)
 
 	return 0;
 }
+
+#ifdef CONFIG_QSC_MODEM
+static void msm_hs_shutdown_port(struct platform_device *pdev)
+{
+	struct msm_hs_port *msm_uport = &q_uart_port[pdev->id];
+	const struct msm_serial_hs_platform_data *pdata =
+				pdev->dev.platform_data;
+
+	if(!msm_uport || !(msm_uport->uport.state) || !(msm_uport->uport.state->port.tty))
+		return;
+
+	if (!strcmp(msm_uport->uport.state->port.tty->name,"ttyHS1")){
+		if (test_bit(ASYNCB_INITIALIZED, &msm_uport->uport.state->port.flags)){
+				if (pdata && pdata->gpio_config)
+					if (pdata->gpio_config(0))
+						dev_err(msm_uport->uport.dev, "GPIO config error\n");
+		}
+		else
+			pr_info("%s UART port did not be initialized.\n", __func__);
+	}
+
+}
+#endif
 
 static int msm_hs_init_clk(struct uart_port *uport)
 {
@@ -1131,6 +1155,14 @@ static void msm_hs_enable_ms_locked(struct uart_port *uport)
 
 }
 
+static void msm_hs_flush_buffer_locked(struct uart_port *uport)
+{
+	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
+
+	if (msm_uport->tx.dma_in_flight)
+		msm_uport->tty_flush_receive = true;
+}
+
 static void msm_hs_break_ctl(struct uart_port *uport, int ctl)
 {
 	unsigned long flags;
@@ -1320,7 +1352,12 @@ static irqreturn_t msm_hs_isr(int irq, void *dev)
 		}
 		mb();
 		
-		tx_buf->tail = (tx_buf->tail + tx->tx_count) & ~UART_XMIT_SIZE;
+
+		if (!msm_uport->tty_flush_receive)
+			tx_buf->tail = (tx_buf->tail +
+					tx->tx_count) & ~UART_XMIT_SIZE;
+		else
+			msm_uport->tty_flush_receive = false;
 
 		tx->dma_in_flight = 0;
 
@@ -1982,7 +2019,18 @@ static int msm_hs_runtime_resume(struct device *dev)
 	struct platform_device *pdev = container_of(dev, struct
 						    platform_device, dev);
 	struct msm_hs_port *msm_uport = &q_uart_port[pdev->id];
+
+#ifdef CONFIG_QSC_MODEM
+	if (!strcmp(msm_uport->uport.state->port.tty->name,"ttyHS1"))
+	{
+		pr_err("%s: Unexpected runtime resume calling to GSBI1\n", __func__);
+	}
+	else
+		msm_hs_request_clock_on(&msm_uport->uport);
+#else
 	msm_hs_request_clock_on(&msm_uport->uport);
+#endif
+
 	return 0;
 }
 
@@ -1991,7 +2039,18 @@ static int msm_hs_runtime_suspend(struct device *dev)
 	struct platform_device *pdev = container_of(dev, struct
 						    platform_device, dev);
 	struct msm_hs_port *msm_uport = &q_uart_port[pdev->id];
+
+#ifdef CONFIG_QSC_MODEM
+	if (!strcmp(msm_uport->uport.state->port.tty->name,"ttyHS1"))
+	{
+		pr_err("%s: Unexpected runtime suspend calling to GSBI1\n", __func__);
+	}
+	else
+		msm_hs_request_clock_off(&msm_uport->uport);
+#else
 	msm_hs_request_clock_off(&msm_uport->uport);
+#endif
+
 	return 0;
 }
 
@@ -2004,6 +2063,9 @@ static const struct dev_pm_ops msm_hs_dev_pm_ops = {
 static struct platform_driver msm_serial_hs_platform_driver = {
 	.probe	= msm_hs_probe,
 	.remove = __devexit_p(msm_hs_remove),
+#ifdef CONFIG_QSC_MODEM
+	.shutdown = msm_hs_shutdown_port,
+#endif
 	.driver = {
 		.name = "msm_serial_hs",
 		.pm   = &msm_hs_dev_pm_ops,
@@ -2034,6 +2096,7 @@ static struct uart_ops msm_hs_ops = {
 	.config_port = msm_hs_config_port,
 	.release_port = msm_hs_release_port,
 	.request_port = msm_hs_request_port,
+	.flush_buffer = msm_hs_flush_buffer_locked,
 };
 
 module_init(msm_serial_hs_init);

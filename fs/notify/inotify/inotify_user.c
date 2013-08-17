@@ -524,6 +524,8 @@ static int inotify_update_existing_watch(struct fsnotify_group *group,
 
 	
 	mask = inotify_arg_to_mask(arg);
+	if (unlikely(!(mask & IN_ALL_EVENTS)))
+		return -EINVAL;
 
 	fsn_mark = fsnotify_find_inode_mark(group, inode);
 	if (!fsn_mark)
@@ -575,6 +577,8 @@ static int inotify_new_watch(struct fsnotify_group *group,
 
 	
 	mask = inotify_arg_to_mask(arg);
+	if (unlikely(!(mask & IN_ALL_EVENTS)))
+		return -EINVAL;
 
 	tmp_i_mark = kmem_cache_alloc(inotify_inode_mark_cachep, GFP_KERNEL);
 	if (unlikely(!tmp_i_mark))

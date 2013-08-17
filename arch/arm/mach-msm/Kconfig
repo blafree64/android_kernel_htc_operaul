@@ -1079,6 +1079,10 @@ config HTC_ONMODE_CHARGING
 	help
 		support on mode charing icon
 
+config HTC_FD_MONITOR
+	bool "fd operation monitor mechanism"
+	default n
+
 choice
 	prompt "Default Timer"
 	default MSM7X00A_USE_GP_TIMER
